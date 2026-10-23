@@ -4,39 +4,45 @@
 
 Credits: **ales04718**
 
-![Platform](https://img.shields.io/badge/platform-macOS-77cfff)
-![Build](https://img.shields.io/badge/build-GitHub%20Actions-161b22)
-
-Flak1 provides a searchable viewer for text dumps, logs, JSON metadata and other local text files. It features a midnight interface, gently falling snow, a line-numbered viewer, search filtering, copy, and export.
+Flak1 is a searchable viewer for local text dumps, logs, JSON metadata, and other files you are authorized to inspect.
 
 ## Features
 
-- 🌨️ Subtle animated snowfall and smooth dark/icy-blue visuals
-- 🔎 Instant line search with match counts
-- 📂 Import local UTF-8 text, JSON, log and dump files
-- 📋 Copy contents and export a text copy
-- 🧊 Local-first: no telemetry, no upload, and no process attachment
-- 📦 GitHub Actions builds a macOS .dmg artifact
+- Animated snowfall and dark icy-blue visuals
+- Custom snowflake app icon
+- Universal macOS binary for Apple Silicon and Intel Macs
+- Instant search, line numbers, copy, import, and export
+- Local-first; does not upload files or attach to Roblox processes
 
-## Download
+## Build artifacts
 
-After the first successful workflow run, open the repository's Actions tab, select "Build Flak1 for macOS", and download the "Flak1-macOS-dmg" artifact from the completed run.
+Every push to `main` builds a DMG and validates the disk image. If Apple Developer ID signing and notarization credentials are not configured, Actions uploads a **preview-only, not-notarized** artifact for 14 days.
 
-The workflow currently creates an ad-hoc signed app for testing. It is **not notarized**. macOS may warn when opening it; only run builds you trust. A Developer ID certificate and Apple notarization credentials are required for a fully signed public release.
+[Open the latest build in GitHub Actions](https://github.com/alzscriptz/Flak1/actions).
 
-## Build locally
+## Public release requirements
 
-Requires a Mac with Xcode Command Line Tools / Swift installed.
+A public macOS release that opens under normal Gatekeeper settings must be signed with an Apple Developer ID Application certificate and notarized by Apple. GitHub repository administrators must add these Actions secrets under **Settings → Secrets and variables → Actions**:
 
-    mkdir -p build/Flak1.app/Contents/MacOS
-    swiftc -parse-as-library Sources/Flak1App.swift -o build/Flak1.app/Contents/MacOS/Flak1 -framework SwiftUI -framework AppKit -framework UniformTypeIdentifiers
+- `MACOS_CERTIFICATE_P12`: base64-encoded Developer ID Application certificate exported as a password-protected .p12 file
+- `MACOS_CERTIFICATE_PASSWORD`: password used to export the .p12 file
+- `MACOS_SIGNING_IDENTITY`: exact Developer ID Application identity name shown by `security find-identity -v -p codesigning`
+- `APPLE_ID`: Apple Developer account email
+- `APPLE_APP_SPECIFIC_PASSWORD`: app-specific password for notarization
+- `APPLE_TEAM_ID`: Apple Developer Team ID
 
-For a distributable DMG, create a complete app bundle with the Info.plist in .github/workflows/build-macos.yml, then package it with hdiutil.
+When all six secrets are present, the workflow signs the app, notarizes and staples the DMG, then publishes/updates the public `v0.2.0` GitHub Release. Without these credentials, it deliberately does not label the preview as a full release.
 
-## Scope and responsible use
+Apple's official requirements: [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
-Flak1 inspects files that you select. It does not attach to Roblox, read another process's memory, bypass anti-cheat, or fetch private runtime offsets. Use it to examine metadata and symbols you are authorized to access.
+## Use
+
+Mount the DMG, drag `Flak1.app` to Applications, and launch it. Use Import file to inspect a local UTF-8 text, JSON, log, or dump file. Search filters the displayed lines; Export saves the loaded text.
+
+## Scope
+
+Flak1 inspects files selected by the user. It does not attach to Roblox, read another process's memory, bypass anti-cheat, or fetch private runtime offsets.
 
 ## Credits
 
-Created with icy inspiration. **ales04718**
+**ales04718**
