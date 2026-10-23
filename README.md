@@ -1,47 +1,33 @@
-# ❄️ Flak1
+# ❄️ Flak1 v2.0.0
 
-**A dark, icy-blue local metadata and dump explorer for macOS.**
+**A macOS engineering utility for local process diagnostics and dump analysis.**
 
 Credits: **ales04718**
 
-Flak1 is a searchable viewer for local text dumps, logs, JSON metadata, and other files you are authorized to inspect.
+## v2.0.0
 
-## Features
+- PID-based process discovery using macOS process metadata
+- Structured diagnostic report with timestamp, PID, parent PID, user ID, state, elapsed time, and command
+- Open generated reports in the searchable dump explorer, then copy or export them
+- Import local text, JSON, logs, symbol maps, and developer-provided dumps for searching
+- Universal macOS build for Apple Silicon and Intel
+- Icy-blue interface and snowflake branding
 
-- Animated snowfall and dark icy-blue visuals
-- Custom snowflake app icon
-- Universal macOS binary for Apple Silicon and Intel Macs
-- Instant search, line numbers, copy, import, and export
-- Local-first; does not upload files or attach to Roblox processes
+## Download
 
-## Build artifacts
+Open the [GitHub Releases page](https://github.com/alzscriptz/Flak1/releases) for the v2.0.0 DMG and checksum when the build finishes.
 
-Every push to `main` builds a DMG and validates the disk image. If Apple Developer ID signing and notarization credentials are not configured, Actions uploads a **preview-only, not-notarized** artifact for 14 days.
+The release is not notarized unless Apple signing and notarization credentials are configured. macOS may require an explicit override in Privacy & Security.
 
-[Open the latest build in GitHub Actions](https://github.com/alzscriptz/Flak1/actions).
+## Process diagnostics and offsets
 
-## Public release requirements
+Process Lab accepts a PID and uses macOS `ps` to report process metadata. It does not read arbitrary process memory. Generic process metadata cannot establish reliable internal runtime offsets. Offset analysis is available by importing authorized developer-generated dumps, symbol maps, or debug metadata into Dump Explorer; reports should distinguish verified symbol-derived offsets from unverified guesses.
 
-A public macOS release that opens under normal Gatekeeper settings must be signed with an Apple Developer ID Application certificate and notarized by Apple. GitHub repository administrators must add these Actions secrets under **Settings → Secrets and variables → Actions**:
+Use this tool only on systems and data you are authorized to inspect. Flak1 does not bypass OS protections or anti-cheat mechanisms.
 
-- `MACOS_CERTIFICATE_P12`: base64-encoded Developer ID Application certificate exported as a password-protected .p12 file
-- `MACOS_CERTIFICATE_PASSWORD`: password used to export the .p12 file
-- `MACOS_SIGNING_IDENTITY`: exact Developer ID Application identity name shown by `security find-identity -v -p codesigning`
-- `APPLE_ID`: Apple Developer account email
-- `APPLE_APP_SPECIFIC_PASSWORD`: app-specific password for notarization
-- `APPLE_TEAM_ID`: Apple Developer Team ID
+## Build
 
-When all six secrets are present, the workflow signs the app, notarizes and staples the DMG, then publishes/updates the public `v0.2.0` GitHub Release. Without these credentials, it deliberately does not label the preview as a full release.
-
-Apple's official requirements: [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
-
-## Use
-
-Mount the DMG, drag `Flak1.app` to Applications, and launch it. Use Import file to inspect a local UTF-8 text, JSON, log, or dump file. Search filters the displayed lines; Export saves the loaded text.
-
-## Scope
-
-Flak1 inspects files selected by the user. It does not attach to Roblox, read another process's memory, bypass anti-cheat, or fetch private runtime offsets.
+The GitHub Actions workflow compiles a universal app bundle for macOS 13+, packages and verifies a DMG, and publishes the v2.0.0 release. The DMG is unsigned/ad-hoc-signed and not notarized when signing credentials are unavailable.
 
 ## Credits
 
