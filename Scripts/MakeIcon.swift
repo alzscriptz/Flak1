@@ -13,45 +13,48 @@ guard let context = NSGraphicsContext.current?.cgContext else {
     fputs("Unable to create drawing context\n", stderr)
     exit(1)
 }
-context.setFillColor(NSColor(calibratedRed: 0.025, green: 0.075, blue: 0.14, alpha: 1).cgColor)
 let bounds = CGRect(x: 0, y: 0, width: side, height: side)
+context.setFillColor(NSColor(calibratedRed: 0.015, green: 0.24, blue: 0.64, alpha: 1).cgColor)
 context.fill(bounds)
-let tile = CGRect(x: 64, y: 64, width: 896, height: 896)
-let bg = CGPath(roundedRect: tile, cornerWidth: 210, cornerHeight: 210, transform: nil)
-context.setFillColor(NSColor(calibratedRed: 0.035, green: 0.16, blue: 0.28, alpha: 1).cgColor)
-context.addPath(bg)
-context.fillPath()
-context.saveGState()
-context.addPath(bg)
-context.clip()
-let gradientColors = [NSColor(calibratedRed: 0.1, green: 0.5, blue: 0.85, alpha: 1).cgColor,
-                      NSColor(calibratedRed: 0.05, green: 0.25, blue: 0.48, alpha: 1).cgColor] as CFArray
-let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: gradientColors, locations: [0, 1])!
-context.drawLinearGradient(gradient, start: CGPoint(x: 100, y: 900), end: CGPoint(x: 900, y: 100), options: [])
-context.restoreGState()
-context.setStrokeColor(NSColor(calibratedRed: 0.55, green: 0.88, blue: 1, alpha: 1).cgColor)
-context.setLineWidth(31)
-context.setLineCap(.round)
-context.setLineJoin(.round)
+// Pixel-art, six-way snowflake inspired by the supplied bright-blue reference.
+let unit: CGFloat = 32
 let center = CGPoint(x: 512, y: 512)
-for angle in stride(from: 0.0, to: 360.0, by: 60.0) {
-    let a = angle * Double.pi / 180
-    let dx = cos(a), dy = sin(a)
-    let end = CGPoint(x: center.x + dx * 300, y: center.y + dy * 300)
-    context.move(to: CGPoint(x: center.x - dx * 300, y: center.y - dy * 300))
-    context.addLine(to: end)
-    for sign in [-1.0, 1.0] {
-        let p = CGPoint(x: center.x + dx * 205 * sign, y: center.y + dy * 205 * sign)
-        for branchSign in [-1.0, 1.0] {
-            let theta = a + Double.pi / 3 * branchSign
-            context.move(to: p)
-            context.addLine(to: CGPoint(x: p.x - cos(theta) * 80 * sign, y: p.y - sin(theta) * 80 * sign))
+let cyan = NSColor(calibratedRed: 0.12, green: 0.62, blue: 0.94, alpha: 1)
+let pale = NSColor(calibratedRed: 0.20, green: 0.72, blue: 1.0, alpha: 1)
+func pixel(_ x: Int, _ y: Int, _ color: NSColor = cyan) {
+    context.setFillColor(color.cgColor)
+    context.fill(CGRect(x: CGFloat(x) * unit, y: CGFloat(y) * unit, width: unit, height: unit))
+}
+let cx = 16, cy = 16
+for step in -14...14 {
+    let x = cx + step
+    pixel(x, cy, abs(step) % 3 == 0 ? pale : cyan)
+    let y = cy + step
+    pixel(cx, y, abs(step) % 3 == 0 ? pale : cyan)
+}
+// Diagonal arms and blocky branchlets make the snowflake silhouette.
+for signX in [-1, 1] {
+    for signY in [-1, 1] {
+        for step in 2...12 {
+            pixel(cx + signX * step, cy + signY * step, step % 3 == 0 ? pale : cyan)
+        }
+        for step in [5, 8, 11] {
+            for branch in 1...3 {
+                pixel(cx + signX * step, cy + signY * (step - branch), pale)
+                pixel(cx + signX * (step - branch), cy + signY * step, cyan)
+            }
         }
     }
 }
-context.strokePath()
-context.setFillColor(NSColor.white.cgColor)
-context.fillEllipse(in: CGRect(x: 478, y: 478, width: 68, height: 68))
+// Add pixelated tips to the vertical and horizontal arms.
+for d in 10...14 {
+    for off in -2...2 {
+        pixel(cx + off, cy + d, d % 2 == 0 ? pale : cyan)
+        pixel(cx + off, cy - d, d % 2 == 0 ? pale : cyan)
+        pixel(cx + d, cy + off, d % 2 == 0 ? pale : cyan)
+        pixel(cx - d, cy + off, d % 2 == 0 ? pale : cyan)
+    }
+}
 image.unlockFocus()
 guard let tiff = image.tiffRepresentation,
       let bitmap = NSBitmapImageRep(data: tiff),
@@ -60,4 +63,4 @@ guard let tiff = image.tiffRepresentation,
     exit(1)
 }
 try png.write(to: output, options: .atomic)
-print("Wrote icon to \(output.path)")
+print("Wrote pixel snowflake icon to \(output.path)")
