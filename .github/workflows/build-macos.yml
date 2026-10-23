@@ -1,0 +1,60 @@
+name: Build Flak1 for macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Show toolchain
+        run: swift --version
+      - name: Compile and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Flak1.app"
+          mkdir -p "$APP/Contents/MacOS"
+          swiftc -parse-as-library Sources/Flak1App.swift \
+            -o "$APP/Contents/MacOS/Flak1" \
+            -framework SwiftUI -framework AppKit -framework UniformTypeIdentifiers
+          cat > "$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>Flak1</string>
+            <key>CFBundleIdentifier</key><string>com.ales04718.flak1</string>
+            <key>CFBundleName</key><string>Flak1</string>
+            <key>CFBundleDisplayName</key><string>Flak1</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>LSMinimumSystemVersion</key><string>13.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          plutil -lint "$APP/Contents/Info.plist"
+          codesign --force --deep --sign - "$APP"
+          mkdir -p dist
+          hdiutil create -volname "Flak1" -srcfolder "$APP" -ov -format UDZO "dist/Flak1-macOS.dmg"
+          shasum -a 256 "dist/Flak1-macOS.dmg" > "dist/SHA256SUMS.txt"
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Flak1-macOS-dmg
+          path: |
+            dist/Flak1-macOS.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
