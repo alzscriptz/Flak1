@@ -63,7 +63,7 @@ jobs:
           <key>CFBundleDisplayName</key><string>Flak1</string>
           <key>CFBundlePackageType</key><string>APPL</string>
           <key>CFBundleIconFile</key><string>AppIcon</string>
-          <key>CFBundleShortVersionString</key><string>0.2.0</string>
+          <key>CFBundleShortVersionString</key><string>1.0.0</string>
           <key>CFBundleVersion</key><string>${GITHUB_RUN_NUMBER}</string>
           <key>LSMinimumSystemVersion</key><string>13.0</string>
           <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
@@ -72,7 +72,7 @@ jobs:
           PLIST
           plutil -lint "$APP/Contents/Info.plist"
           file "$APP/Contents/MacOS/Flak1"
-          lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/Flak1"
+          lipo -verify_arch "$APP/Contents/MacOS/Flak1" arm64 x86_64
           test -s "$APP/Contents/Resources/AppIcon.icns"
 
       - name: Import Developer ID certificate
@@ -125,11 +125,11 @@ jobs:
           xcrun stapler validate dist/Flak1-macOS.dmg
           shasum -a 256 dist/Flak1-macOS.dmg > dist/SHA256SUMS.txt
 
-      - name: Upload preview artifact
+      - name: Upload unsigned DMG artifact
         if: steps.credentials.outputs.notary != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Flak1-macOS-preview-not-notarized
+          name: Flak1-macOS-unsigned
           path: |
             dist/Flak1-macOS.dmg
             dist/SHA256SUMS.txt
@@ -137,18 +137,18 @@ jobs:
           retention-days: 14
 
       - name: Publish public GitHub Release
-        if: steps.credentials.outputs.notary == 'true'
+        if: always() && success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.0
-          name: Flak1 v0.2.0
+          tag_name: v1.0.0
+          name: Flak1 v1.0.0
           target_commitish: ${{ github.sha }}
           body: |
-            ## Flak1 v0.2.0
+            ## Flak1 v1.0.0
 
             Universal macOS app (Apple Silicon + Intel) with app icon, icy animated interface, searchable local dump viewer, import, copy, and export.
 
-            Developer ID signed and Apple-notarized. Mount the DMG and drag Flak1.app into Applications.
+            Unsigned/ad-hoc-signed universal macOS build for Apple Silicon and Intel. Mount the DMG and drag Flak1.app into Applications. If macOS blocks launch, use System Settings → Privacy & Security → Open Anyway. This build is not notarized.
           files: |
             dist/Flak1-macOS.dmg
             dist/SHA256SUMS.txt
