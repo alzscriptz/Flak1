@@ -72,7 +72,7 @@ jobs:
           PLIST
           plutil -lint "$APP/Contents/Info.plist"
           file "$APP/Contents/MacOS/Flak1"
-          lipo -verify_arch "$APP/Contents/MacOS/Flak1" arm64 x86_64
+          lipo "$APP/Contents/MacOS/Flak1" -verify_arch arm64 x86_64
           test -s "$APP/Contents/Resources/AppIcon.icns"
 
       - name: Import Developer ID certificate
