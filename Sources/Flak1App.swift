@@ -28,6 +28,8 @@ struct MainView: View {
     @State private var showExporter = false
     @State private var statusMessage = "Ready · Local files only"
     @State private var snowEnabled = true
+    @State private var pidText = ""
+    @State private var processReport = "Choose a PID and select Inspect process to generate a diagnostic report."
     private let ice = Color(red: 0.28, green: 0.76, blue: 1)
     private let muted = Color(red: 0.52, green: 0.65, blue: 0.75)
     private var lines: [(Int, String)] {
@@ -46,7 +48,7 @@ struct MainView: View {
                 VStack(spacing: 0) {
                     header
                     Divider().overlay(Color.white.opacity(0.08))
-                    if selectedTab == "Dump Explorer" { explorer } else { about }
+                    if selectedTab == "Dump Explorer" { explorer } else if selectedTab == "Process Lab" { processLab } else { about }
                     footer
                 }
             }.padding(12)
@@ -85,6 +87,7 @@ struct MainView: View {
             }.padding(.top, 6)
             Text("WORKSPACE").font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(1.5).foregroundStyle(muted)
             navItem("Dump Explorer", icon: "square.stack.3d.up")
+            navItem("Process Lab", icon: "cpu")
             navItem("About Flak1", icon: "snowflake")
             Spacer()
             VStack(alignment: .leading, spacing: 8) {
@@ -113,7 +116,7 @@ struct MainView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(selectedTab).font(.system(size: 22, weight: .bold, design: .rounded))
-                Text("Inspect and search files you choose to open").font(.system(size: 11)).foregroundStyle(muted)
+                Text(selectedTab == "Process Lab" ? "Inspect process metadata and export diagnostic reports" : "Inspect and search files you choose to open").font(.system(size: 11)).foregroundStyle(muted)
             }
             Spacer()
             Button { snowEnabled.toggle() } label: { Label("Snow", systemImage: snowEnabled ? "snowflake" : "cloud") }.buttonStyle(QuietButton())
@@ -167,6 +170,77 @@ struct MainView: View {
         }.padding(18)
     }
 
+    private var processLab: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                Image(systemName: "cpu").font(.system(size: 28)).foregroundStyle(ice)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Process Diagnostics").font(.system(size: 23, weight: .bold, design: .rounded))
+                    Text("Inspect a PID using macOS process metadata tools").font(.system(size: 11)).foregroundStyle(muted)
+                }
+            }
+            HStack(spacing: 10) {
+                TextField("Process ID (PID)", text: $pidText).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
+                    .onChange(of: pidText) { _, value in pidText = String(value.filter(\.isNumber).prefix(10)) }
+                Button { inspectProcess() } label: { Label("Inspect process", systemImage: "waveform.path.ecg") }.buttonStyle(IceButton())
+                Button { dumpText = processReport; loadedFile = "Process diagnostic report"; selectedTab = "Dump Explorer"; statusMessage = "Report loaded in explorer" } label: { Label("Open report", systemImage: "doc.text") }.buttonStyle(QuietButton())
+            }
+            Text("Report preview").font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(1.2).foregroundStyle(muted)
+            ScrollView([.vertical, .horizontal]) {
+                Text(processReport).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading).padding(16)
+            }.background(Color(red: 0.025, green: 0.04, blue: 0.065), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(ice.opacity(0.16), lineWidth: 1))
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle").foregroundStyle(ice)
+                Text("This report uses macOS ps metadata only. It does not read process memory or claim to infer private runtime offsets. For reliable symbol offsets, import debug symbols or an authorized developer-generated dump in Dump Explorer.")
+                    .font(.system(size: 11)).foregroundStyle(muted).lineSpacing(3)
+            }
+            Spacer(minLength: 0)
+        }.padding(20)
+    }
+
+    private func inspectProcess() {
+        guard let pid = Int(pidText), pid > 0 else { processReport = "ERROR: Enter a valid positive numeric PID."; statusMessage = "Invalid PID"; return }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
+        task.arguments = ["-p", String(pid), "-o", "pid=,ppid=,uid=,state=,etime=,comm="]
+        let output = Pipe()
+        task.standardOutput = output
+        task.standardError = output
+        do {
+            try task.run()
+            task.waitUntilExit()
+            let raw = output.fileHandleForReading.readDataToEndOfFile()
+            let detail = String(data: raw, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let stamp = ISO8601DateFormatter().string(from: Date())
+            if task.terminationStatus == 0 && !detail.isEmpty {
+                processReport = """
+                FLAK1 PROCESS DIAGNOSTIC REPORT
+                Generated: \(stamp)
+                Host OS: macOS
+                Requested PID: \(pid)
+                Status: FOUND
+                Fields: PID PPID UID STATE ELAPSED COMMAND
+                Process: \(detail)
+
+                Collection method: /bin/ps (metadata only)
+                Memory access: Not performed
+                Offset confidence: Not assessed — process metadata does not reveal runtime offsets
+                """
+                statusMessage = "Process metadata collected for PID \(pid)"
+            } else {
+                processReport = """
+                FLAK1 PROCESS DIAGNOSTIC REPORT
+                Generated: \(stamp)
+                Requested PID: \(pid)
+                Status: NOT FOUND OR NOT VISIBLE
+                Details: \(detail.isEmpty ? "No matching process returned by macOS ps." : detail)
+                """
+                statusMessage = "PID \(pid) not found or not visible"
+            }
+        } catch { processReport = "ERROR inspecting PID \(pid): \(error.localizedDescription)"; statusMessage = "Process inspection failed" }
+    }
     private var about: some View {
         VStack(alignment: .leading, spacing: 18) {
             Image(systemName: "snowflake").font(.system(size: 42)).foregroundStyle(ice)
@@ -184,7 +258,7 @@ struct MainView: View {
             Circle().fill(ice).frame(width: 5, height: 5)
             Text(statusMessage).lineLimit(1)
             Spacer()
-            Text("FLAK1 • v0.1.0").foregroundStyle(muted.opacity(0.8))
+            Text("FLAK1 • v2.0.0").foregroundStyle(muted.opacity(0.8))
         }.font(.system(size: 10, design: .monospaced)).foregroundStyle(muted).padding(.horizontal, 18).padding(.vertical, 10)
     }
 
