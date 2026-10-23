@@ -63,7 +63,7 @@ jobs:
           <key>CFBundleDisplayName</key><string>Flak1</string>
           <key>CFBundlePackageType</key><string>APPL</string>
           <key>CFBundleIconFile</key><string>AppIcon</string>
-          <key>CFBundleShortVersionString</key><string>1.0.0</string>
+          <key>CFBundleShortVersionString</key><string>2.0.0</string>
           <key>CFBundleVersion</key><string>${GITHUB_RUN_NUMBER}</string>
           <key>LSMinimumSystemVersion</key><string>13.0</string>
           <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
@@ -140,11 +140,11 @@ jobs:
         if: always() && success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: Flak1 v1.0.0
+          tag_name: v2.0.0
+          name: Flak1 v2.0.0
           target_commitish: ${{ github.sha }}
           body: |
-            ## Flak1 v1.0.0
+            ## Flak1 v2.0.0
 
             Universal macOS app (Apple Silicon + Intel) with app icon, icy animated interface, searchable local dump viewer, import, copy, and export.
 
