@@ -181,7 +181,7 @@ struct MainView: View {
             }
             HStack(spacing: 10) {
                 TextField("Process ID (PID)", text: $pidText).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
-                    .onChange(of: pidText) { _, value in pidText = String(value.filter(\.isNumber).prefix(10)) }
+                    .onChange(of: pidText) { value in pidText = String(value.filter(\.isNumber).prefix(10)) }
                 Button { inspectProcess() } label: { Label("Inspect process", systemImage: "waveform.path.ecg") }.buttonStyle(IceButton())
                 Button { dumpText = processReport; loadedFile = "Process diagnostic report"; selectedTab = "Dump Explorer"; statusMessage = "Report loaded in explorer" } label: { Label("Open report", systemImage: "doc.text") }.buttonStyle(QuietButton())
             }
