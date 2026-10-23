@@ -150,7 +150,8 @@ struct MainView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         if visibleLines.isEmpty { Text("No lines match “\(searchText)”").foregroundStyle(muted).padding(24) }
                         else {
-                            ForEach(Array(visibleLines.enumerated()), id: \.offset) { _, item in
+                            ForEach(Array(visibleLines.enumerated()), id: \.offset) { pair in
+                                let item = pair.element
                                 HStack(alignment: .firstTextBaseline, spacing: 16) {
                                     Text(String(format: "%04d", item.0)).frame(width: 38, alignment: .trailing).foregroundStyle(ice.opacity(0.55))
                                     Text(item.1.isEmpty ? " " : item.1).foregroundStyle(colorForLine(item.1)).textSelection(.enabled)
