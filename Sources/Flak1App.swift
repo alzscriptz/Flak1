@@ -59,8 +59,7 @@ struct MainView: View {
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 let data = try Data(contentsOf: url)
-                guard let content = String(data: data, encoding: .utf8) else { statusMessage = "File is not valid UTF-8 text"; return }
-                dumpText = content
+                dumpText = renderImportedData(data)
                 loadedFile = url.lastPathComponent
                 searchText = ""
                 statusMessage = "Imported \(url.lastPathComponent)"
@@ -198,6 +197,33 @@ struct MainView: View {
             }
             Spacer(minLength: 0)
         }.padding(20)
+    }
+
+    // Text files stay readable; binary inputs become a conventional 16-byte hex view.
+    // This is an offline file viewer, not a live-process memory dumper.
+    private func renderImportedData(_ data: Data) -> String {
+        if let text = String(data: data, encoding: .utf8) {
+            let sample = text.unicodeScalars.prefix(4096)
+            let printable = sample.filter { CharacterSet.controlCharacters.contains($0) == false || $0 == "\n" || $0 == "\r" || $0 == "\t" }.count
+            if sample.isEmpty || Double(printable) / Double(sample.count) > 0.90 {
+                return text
+            }
+        }
+        let bytes = [UInt8](data)
+        guard !bytes.isEmpty else { return "(empty file)" }
+        var output: [String] = []
+        output.reserveCapacity((bytes.count + 15) / 16)
+        for start in stride(from: 0, to: bytes.count, by: 16) {
+            let end = min(start + 16, bytes.count)
+            let slice = bytes[start..<end]
+            let hex = slice.map { String(format: "%02X", $0) }.joined(separator: " ")
+            let paddedHex = hex.padding(toLength: 47, withPad: " ", startingAt: 0)
+            let ascii = slice.map { byte -> Character in
+                (byte >= 0x20 && byte <= 0x7E) ? Character(UnicodeScalar(byte)) : "."
+            }
+            output.append(String(format: "%08X  %@  |%@|", start, paddedHex, String(ascii)))
+        }
+        return "FLAK1 OFFLINE HEX VIEW\nFile size: \(bytes.count) bytes\nOffset     Hex bytes                                        ASCII\n" + output.joined(separator: "\n")
     }
 
     private func inspectProcess() {
