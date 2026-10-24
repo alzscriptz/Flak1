@@ -80,6 +80,35 @@ class PatternTests(unittest.TestCase):
         self.assertIsNone(module.file_offset_to_address(0x500, layout))
 
 
+    def test_macho_arm64_section_file_offset_mapping(self):
+        data = bytearray(0x400)
+        data[:4] = b"\\xcf\\xfa\\xed\\xfe"  # MH_MAGIC_64, little endian
+        data[4:8] = (0x0100000C).to_bytes(4, "little")  # arm64
+        data[8:12] = (0).to_bytes(4, "little")
+        data[12:16] = (2).to_bytes(4, "little")  # MH_EXECUTE
+        data[16:20] = (1).to_bytes(4, "little")  # ncmds
+        data[20:24] = (152).to_bytes(4, "little")  # sizeofcmds
+        data[24:28] = (0).to_bytes(4, "little")
+        # LC_SEGMENT_64 with one section.
+        import struct
+        struct.pack_into("<II", data, 32, 0x19, 152)
+        data[40:46] = b"__TEXT"
+        struct.pack_into("<QQQQiiII", data, 56, 0x100000000, 0x1000, 0, len(data), 7, 5, 1, 0)
+        sec = 32 + 72
+        data[sec:sec+6] = b"__text"
+        data[sec+16:sec+22] = b"__TEXT"
+        struct.pack_into("<QQ", data, sec + 32, 0x100000300, 0x40)
+        struct.pack_into("<I", data, sec + 48, 0x200)
+        struct.pack_into("<I", data, sec + 64, 0x80000400)
+        binary = module.identify(bytes(data))
+        layout = module.parse_sections(bytes(data), binary)
+        self.assertEqual(binary["format"], "Mach-O")
+        self.assertEqual(binary["architecture"], "ARM64")
+        self.assertEqual(layout["sections"][0]["name"], "__text")
+        mapped = module.file_offset_to_address(0x210, layout)
+        self.assertEqual(mapped["address"], 0x100000310)
+        self.assertIn("runtime slide may apply", mapped["address_kind"])
+
     def test_disassembly_optional_dependency_is_graceful(self):
         result = module.disassemble(b"\\x90", {"architecture": "x86_64", "bits": 64, "format": "ELF"}, {"sections": []})
         self.assertIn("available", result)
