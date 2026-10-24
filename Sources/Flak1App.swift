@@ -258,7 +258,7 @@ struct MainView: View {
             Circle().fill(ice).frame(width: 5, height: 5)
             Text(statusMessage).lineLimit(1)
             Spacer()
-            Text("FLAK1 • v2.0.0").foregroundStyle(muted.opacity(0.8))
+            Text("FLAK1 • v3.0.0").foregroundStyle(muted.opacity(0.8))
         }.font(.system(size: 10, design: .monospaced)).foregroundStyle(muted).padding(.horizontal, 18).padding(.vertical, 10)
     }
 
