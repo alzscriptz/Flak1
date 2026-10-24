@@ -80,5 +80,19 @@ class PatternTests(unittest.TestCase):
         self.assertIsNone(module.file_offset_to_address(0x500, layout))
 
 
+    def test_disassembly_optional_dependency_is_graceful(self):
+        result = module.disassemble(b"\\x90", {"architecture": "x86_64", "bits": 64, "format": "ELF"}, {"sections": []})
+        self.assertIn("available", result)
+        self.assertIn("instructions", result)
+
+    def test_analysis_disassembly_flag_adds_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sample.bin"
+            path.write_bytes(b"\\x00" * 64)
+            result = module.analyze(path, [], 0, include_disassembly=True, instruction_limit=10)
+            self.assertIn("disassembly", result)
+            self.assertIn("available", result["disassembly"])
+
+
 if __name__ == "__main__":
     unittest.main()
