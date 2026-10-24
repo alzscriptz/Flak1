@@ -10,6 +10,9 @@ Credits: **ales04718**
 - Structured diagnostic report with timestamp, PID, parent PID, user ID, state, elapsed time, and command
 - Open generated reports in the searchable dump explorer, then copy or export them
 - Import local text, JSON, logs, symbol maps, and developer-provided dumps for searching
+- Offline binary triage CLI for PE, ELF, and Mach-O identification, printable strings, SHA-256 hashing, and wildcard AOB scans
+- JSON reports with file-offset matches and explicit limits on what the scan proves
+- Unit tests for binary identification, wildcard matching, and report generation
 - Universal macOS build for Apple Silicon and Intel
 - Icy-blue interface and snowflake branding
 
@@ -18,6 +21,17 @@ Credits: **ales04718**
 Open the [GitHub Releases page](https://github.com/alzscriptz/Flak1/releases) for the v2.0.0 DMG and checksum when the build finishes.
 
 The release is not notarized unless Apple signing and notarization credentials are configured. macOS may require an explicit override in Privacy & Security.
+
+## Offline binary analyzer (first analysis-engine milestone)
+
+Run the CLI on a local binary or authorized capture:
+
+```bash
+python3 Tools/flak1_analyze.py ./sample.bin --pattern "48 8B ?? ?? 89" --output report.json
+python3 -m unittest discover -s Tests -v
+```
+
+The scanner reports **file offsets**, not live virtual addresses or validated runtime offsets. This initial engine identifies PE/ELF/Mach-O formats, reports basic architecture metadata, extracts printable ASCII strings, hashes the input, and scans wildcard byte signatures. It is not yet a disassembler, CFG/AST engine, YARA integration, or runtime instrumentation system. CI runs the unit tests before building the app.
 
 ## Process diagnostics and offsets
 
