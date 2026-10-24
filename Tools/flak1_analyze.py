@@ -216,7 +216,7 @@ def analyze(path: Path, patterns: list[str], string_limit: int) -> dict[str, Any
             if mapped:
                 entry.update(mapped)
             matches.append(entry)
-        info["signatures"].append({"pattern": raw, "match_count": len(hits), "matches": matches})
+        info["signatures"].append({"pattern": raw, "match_count": len(hits), "file_offsets_hex": [f"0x{x:X}" for x in hits], "matches": matches})
     return info
 
 
