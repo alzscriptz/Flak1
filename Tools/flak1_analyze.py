@@ -128,6 +128,48 @@ def parse_sections(data: bytes, binary: dict[str, Any]) -> dict[str, Any]:
         return {"sections": [], "warnings": [f"Layout parsing failed: {exc}"], "address_mapping": None}
 
 
+
+def disassemble(data: bytes, binary: dict[str, Any], layout: dict[str, Any], limit: int = 5000) -> dict[str, Any]:
+    """Best-effort offline disassembly via optional Capstone; no dependency is required."""
+    try:
+        import capstone  # type: ignore[import-not-found]
+    except ImportError:
+        return {"available": False, "engine": None, "instructions": [],
+                "note": "Install the optional 'capstone' package to enable instruction decoding."}
+    arch_name = binary.get("architecture")
+    if arch_name in ("x86_64", "x86") and binary.get("format") in ("PE", "ELF", "Mach-O"):
+        arch = capstone.CS_ARCH_X86
+        mode = capstone.CS_MODE_64 if binary.get("bits") == 64 else capstone.CS_MODE_32
+    elif arch_name in ("ARM64", "AArch64"):
+        arch, mode = capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM
+    elif arch_name in ("ARM",):
+        arch, mode = capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM
+    else:
+        return {"available": False, "engine": "capstone", "instructions": [],
+                "note": f"Unsupported disassembly architecture: {arch_name!r}"}
+    md = capstone.Cs(arch, mode)
+    md.detail = True
+    instructions: list[dict[str, Any]] = []
+    segments = []
+    for seg in layout.get("sections", []):
+        flags = seg.get("characteristics", seg.get("flags", 0))
+        executable = bool(flags & (0x20000000 if binary.get("format") == "PE" else 0x1))
+        if executable:
+            segments.append(seg)
+    for seg in segments:
+        start, size = seg["file_offset"], seg["file_size"]
+        code = data[start:start + size]
+        for ins in md.disasm(code, seg["virtual_address"]):
+            row = {"address": ins.address, "address_hex": f"0x{ins.address:X}",
+                   "file_offset": start + ins.address - seg["virtual_address"],
+                   "mnemonic": ins.mnemonic, "operands": ins.op_str, "bytes_hex": ins.bytes.hex(" ")}
+            instructions.append(row)
+            if len(instructions) >= limit:
+                return {"available": True, "engine": "capstone", "instructions": instructions,
+                        "truncated": True, "note": "Best-effort linear sweep; data embedded in executable sections may decode as instructions."}
+    return {"available": True, "engine": "capstone", "instructions": instructions,
+            "truncated": False, "note": "Best-effort linear sweep; data embedded in executable sections may decode as instructions."}
+
 def file_offset_to_address(offset: int, layout: dict[str, Any]) -> dict[str, Any] | None:
     for section in layout.get("sections", []):
         start, size = section["file_offset"], section["file_size"]
@@ -175,7 +217,7 @@ def scan(data: bytes, pattern: list[int | None], limit: int = 10000) -> list[int
     return hits
 
 
-def analyze(path: Path, patterns: list[str], string_limit: int) -> dict[str, Any]:
+def analyze(path: Path, patterns: list[str], string_limit: int, include_disassembly: bool = False, instruction_limit: int = 5000) -> dict[str, Any]:
     size = path.stat().st_size
     if size > MAX_FILE_SIZE:
         raise ValueError(f"File exceeds safety limit of {MAX_FILE_SIZE} bytes")
@@ -198,6 +240,8 @@ def analyze(path: Path, patterns: list[str], string_limit: int) -> dict[str, Any
             "note": "Matches are file offsets, not runtime addresses. Validate any hypothesis independently."
         }
     }
+    if include_disassembly:
+        info["disassembly"] = disassemble(data, binary, layout, instruction_limit)
     for match in STRING_RE.finditer(data):
         if len(info["strings"]) >= string_limit:
             break
@@ -225,12 +269,16 @@ def main() -> int:
     parser.add_argument("file", type=Path, help="Local binary or authorized capture file")
     parser.add_argument("--pattern", action="append", default=[], help='AOB pattern, e.g. "48 8B ?? ?? 89" (repeatable)')
     parser.add_argument("--strings-limit", type=int, default=2000, help="Maximum printable strings to include (default: 2000)")
+    parser.add_argument("--disassemble", action="store_true", help="Decode executable sections with optional Capstone")
+    parser.add_argument("--instruction-limit", type=int, default=5000, help="Maximum decoded instructions (default: 5000)")
     parser.add_argument("--output", "-o", type=Path, help="Write JSON report to this path; otherwise print to stdout")
     args = parser.parse_args()
+    if args.instruction_limit < 1 or args.instruction_limit > 100000:
+        parser.error("--instruction-limit must be between 1 and 100000")
     if args.strings_limit < 0 or args.strings_limit > 100000:
         parser.error("--strings-limit must be between 0 and 100000")
     try:
-        report = analyze(args.file, args.pattern, args.strings_limit)
+        report = analyze(args.file, args.pattern, args.strings_limit, args.disassemble, args.instruction_limit)
         encoded = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
         if args.output:
             args.output.write_text(encoded, encoding="utf-8")
