@@ -1,16 +1,18 @@
-# ❄️ Flak1 v2.0.0
+# ❄️ Flak1 v3.0.0
 
 **A macOS engineering utility for local process diagnostics and dump analysis.**
 
 Credits: **ales04718**
 
-## v2.0.0
+## v3.0.0
 
 - PID-based process discovery using macOS process metadata
 - Structured diagnostic report with timestamp, PID, parent PID, user ID, state, elapsed time, and command
 - Open generated reports in the searchable dump explorer, then copy or export them
 - Import local text, JSON, logs, symbol maps, and developer-provided dumps for searching
 - Offline binary triage CLI for PE, ELF, and Mach-O identification, printable strings, SHA-256 hashing, and wildcard AOB scans
+- PE section and ELF PT_LOAD file-offset to preferred virtual-address mapping
+- Optional Capstone linear-sweep disassembly for supported x86/x86-64/ARM/ARM64 executable segments, with instruction and output limits
 - JSON reports with file-offset matches and explicit limits on what the scan proves
 - Unit tests for binary identification, wildcard matching, and report generation
 - Universal macOS build for Apple Silicon and Intel
@@ -18,7 +20,7 @@ Credits: **ales04718**
 
 ## Download
 
-Open the [GitHub Releases page](https://github.com/alzscriptz/Flak1/releases) for the v2.0.0 DMG and checksum when the build finishes.
+Open the [GitHub Releases page](https://github.com/alzscriptz/Flak1/releases) for the v3.0.0 DMG and checksum when the build finishes.
 
 The release is not notarized unless Apple signing and notarization credentials are configured. macOS may require an explicit override in Privacy & Security.
 
@@ -41,7 +43,7 @@ Use this tool only on systems and data you are authorized to inspect. Flak1 does
 
 ## Build
 
-The GitHub Actions workflow compiles a universal app bundle for macOS 13+, packages and verifies a DMG, and publishes the v2.0.0 release. The DMG is unsigned/ad-hoc-signed and not notarized when signing credentials are unavailable.
+The GitHub Actions workflow compiles a universal app bundle for macOS 13+, packages and verifies a DMG, and publishes the v3.0.0 release. The DMG is unsigned/ad-hoc-signed and not notarized when signing credentials are unavailable.
 
 ## Credits
 
