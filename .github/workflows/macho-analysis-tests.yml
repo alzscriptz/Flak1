@@ -1,0 +1,28 @@
+name: Offline binary analyzer tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Tools/flak1_analyze.py"
+      - "Tests/**"
+      - ".github/workflows/macho-analysis-tests.yml"
+  pull_request:
+    paths:
+      - "Tools/flak1_analyze.py"
+      - "Tests/**"
+      - ".github/workflows/macho-analysis-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Python version
+        run: python3 --version
+      - name: Run analyzer unit tests
+        run: python3 -m unittest discover -s Tests -v
