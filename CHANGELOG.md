@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.0
+
+### Fixed
+- Dump Explorer now accepts binary files and renders them as a 16-byte hex/ASCII view instead of rejecting non-UTF-8 input.
+- UTF-8 text imports remain readable, and empty files receive an explicit preview.
+- The app bundle version and release workflow are aligned to 3.1.0.
+
+### Scope
+- This is offline file inspection; it does not dump live process memory or extract protected runtime state.
+
+
 ## 3.0.0
 
 ### Added
