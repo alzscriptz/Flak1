@@ -27,6 +27,9 @@ jobs:
           if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$SIGNING_IDENTITY" ]]; then echo "signing=true" >> "$GITHUB_OUTPUT"; else echo "signing=false" >> "$GITHUB_OUTPUT"; fi
           if [[ -n "$CERT_P12" && -n "$CERT_PASSWORD" && -n "$SIGNING_IDENTITY" && -n "$APPLE_ID" && -n "$APPLE_PASSWORD" && -n "$APPLE_TEAM" ]]; then echo "notary=true" >> "$GITHUB_OUTPUT"; else echo "notary=false" >> "$GITHUB_OUTPUT"; fi
 
+      - name: Test offline binary analysis engine
+        run: python3 -m unittest discover -s Tests -v
+
       - name: Generate app icon
         run: |
           set -euo pipefail
