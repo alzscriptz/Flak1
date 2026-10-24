@@ -30,7 +30,7 @@ class PatternTests(unittest.TestCase):
         self.assertEqual(result["bits"], 64)
 
     def test_pe_identification(self):
-        data = bytearray(256)
+        data = bytearray(512)
         data[:2] = b"MZ"
         data[0x3c:0x40] = (0x80).to_bytes(4, "little")
         data[0x80:0x84] = b"PE\0\0"
