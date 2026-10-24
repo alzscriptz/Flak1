@@ -31,7 +31,7 @@ python3 Tools/flak1_analyze.py ./sample.bin --pattern "48 8B ?? ?? 89" --output 
 python3 -m unittest discover -s Tests -v
 ```
 
-The scanner reports **file offsets**, not live virtual addresses or validated runtime offsets. This initial engine identifies PE/ELF/Mach-O formats, reports basic architecture metadata, extracts printable ASCII strings, hashes the input, and scans wildcard byte signatures. It is not yet a disassembler, CFG/AST engine, YARA integration, or runtime instrumentation system. CI runs the unit tests before building the app.
+The scanner reports **file offsets**, not live virtual addresses or validated runtime offsets. The engine identifies PE/ELF/Mach-O formats, reports basic architecture metadata, extracts printable ASCII strings, hashes the input, and scans wildcard byte signatures. It now parses PE sections and ELF PT_LOAD segments, mapping file-offset findings to preferred PE image addresses or ELF virtual addresses when the match lies inside a parsed section/segment. PE addresses are preferred image addresses (ASLR may relocate them); ELF PIE/shared-object runtime bases may differ. Mach-O mapping is not implemented yet. It is not yet a disassembler, CFG/AST engine, YARA integration, or runtime instrumentation system. CI runs the unit tests before building the app.
 
 ## Process diagnostics and offsets
 
