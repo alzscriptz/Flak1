@@ -209,7 +209,15 @@ def disassemble(data: bytes, binary: dict[str, Any], layout: dict[str, Any], lim
     segments = []
     for seg in layout.get("sections", []):
         flags = seg.get("characteristics", seg.get("flags", 0))
-        executable = bool(flags & (0x20000000 if binary.get("format") == "PE" else 0x1))
+        fmt = binary.get("format")
+        if fmt == "PE":
+            executable = bool(flags & 0x20000000)
+        elif fmt == "Mach-O":
+            # S_ATTR_PURE_INSTRUCTIONS or S_ATTR_SOME_INSTRUCTIONS.
+            executable = bool(flags & (0x80000000 | 0x00000400))
+        else:
+            # ELF PT_LOAD PF_X
+            executable = bool(flags & 0x1)
         if executable:
             segments.append(seg)
     for seg in segments:
