@@ -121,8 +121,64 @@ def parse_sections(data: bytes, binary: dict[str, Any]) -> dict[str, Any]:
                                      "virtual_address": vaddr, "virtual_size": msize, "flags": flags,
                                      "address_kind": "ELF virtual address"})
             return {"sections": sections, "warnings": [], "address_mapping": "ELF PT_LOAD virtual address; PIE/shared-object runtime base may differ"}
-        if fmt and fmt.startswith("Mach-O"):
-            return {"sections": [], "warnings": ["Mach-O section mapping is not implemented yet"], "address_mapping": None}
+        if fmt == "Mach-O" and binary.get("bits") == 64:
+            # Thin 64-bit Mach-O: walk load commands and map each section's
+            # file offset to its section virtual address. This is static file
+            # metadata only; it does not establish a live runtime address.
+            order = "<" if binary.get("endianness") == "little" else ">"
+            if len(data) < 32:
+                raise ValueError("Mach-O header is truncated")
+            ncmds, sizeofcmds = struct.unpack_from(order + "II", data, 16)
+            command_end = 32 + sizeofcmds
+            if ncmds > 65536 or command_end > len(data):
+                raise ValueError("Mach-O load-command region is truncated or implausibly large")
+            cursor = 32
+            for _ in range(ncmds):
+                if cursor + 8 > command_end:
+                    raise ValueError("Mach-O load command header is truncated")
+                cmd, cmdsize = struct.unpack_from(order + "II", data, cursor)
+                if cmdsize < 8 or cursor + cmdsize > command_end:
+                    raise ValueError("Mach-O load command size is invalid")
+                if cmd == 0x19:  # LC_SEGMENT_64
+                    if cmdsize < 72:
+                        raise ValueError("LC_SEGMENT_64 is truncated")
+                    segname = data[cursor + 8:cursor + 24].split(b"\\0", 1)[0].decode("ascii", "replace")
+                    nsects = struct.unpack_from(order + "I", data, cursor + 64)[0]
+                    section_start = cursor + 72
+                    section_size = 80
+                    if nsects > 65536 or section_start + nsects * section_size > cursor + cmdsize:
+                        raise ValueError("Mach-O section table is truncated or implausibly large")
+                    for i in range(nsects):
+                        off = section_start + i * section_size
+                        name = data[off:off + 16].split(b"\\0", 1)[0].decode("ascii", "replace")
+                        section_segment = data[off + 16:off + 32].split(b"\\0", 1)[0].decode("ascii", "replace") or segname
+                        address, size = struct.unpack_from(order + "QQ", data, off + 32)
+                        file_offset = struct.unpack_from(order + "I", data, off + 48)[0]
+                        flags = struct.unpack_from(order + "I", data, off + 64)[0]
+                        # Zerofill sections have no bytes in the file.
+                        section_type = flags & 0xFF
+                        if section_type in (1, 0xC, 0x12) or size == 0:
+                            file_size = 0
+                        elif file_offset < len(data):
+                            file_size = min(size, len(data) - file_offset)
+                        else:
+                            file_size = 0
+                        sections.append({
+                            "name": name,
+                            "segment": section_segment,
+                            "file_offset": file_offset,
+                            "file_size": file_size,
+                            "virtual_address": address,
+                            "virtual_size": size,
+                            "flags": flags,
+                            "address_kind": "Mach-O section VM address (ASLR/runtime slide may apply)"
+                        })
+                cursor += cmdsize
+            return {"sections": sections, "warnings": [], "address_mapping": "Mach-O section VM addresses; runtime slide may apply"}
+        if fmt == "Mach-O":
+            return {"sections": [], "warnings": ["Mach-O 32-bit section mapping is not implemented yet"], "address_mapping": None}
+        if fmt == "Mach-O Universal/FAT":
+            return {"sections": [], "warnings": ["Universal Mach-O slice selection is not implemented yet; analyze a thin architecture slice"], "address_mapping": None}
         return {"sections": [], "warnings": ["Unrecognized format"], "address_mapping": None}
     except (struct.error, ValueError, IndexError) as exc:
         return {"sections": [], "warnings": [f"Layout parsing failed: {exc}"], "address_mapping": None}
