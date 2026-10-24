@@ -66,7 +66,7 @@ jobs:
           <key>CFBundleDisplayName</key><string>Flak1</string>
           <key>CFBundlePackageType</key><string>APPL</string>
           <key>CFBundleIconFile</key><string>AppIcon</string>
-          <key>CFBundleShortVersionString</key><string>2.0.0</string>
+          <key>CFBundleShortVersionString</key><string>3.1.0</string>
           <key>CFBundleVersion</key><string>${GITHUB_RUN_NUMBER}</string>
           <key>LSMinimumSystemVersion</key><string>13.0</string>
           <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
@@ -143,15 +143,15 @@ jobs:
         if: always() && success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.0.0
-          name: Flak1 v3.0.0
+          tag_name: v3.1.0
+          name: Flak1 v3.1.0
           target_commitish: ${{ github.sha }}
           body: |
-            ## Flak1 v3.0.0
+            ## Flak1 v3.1.0
 
-            Universal macOS app (Apple Silicon + Intel) with Process Lab diagnostics, local dump exploration, and the offline binary analysis CLI.
+            Universal macOS app (Apple Silicon + Intel) with Process Lab diagnostics, local dump exploration with binary hex preview, and the offline binary analysis CLI.
 
-            Includes PE/ELF/Mach-O identification, printable strings, wildcard AOB scanning, PE/ELF address mapping, and optional Capstone linear-sweep disassembly (install Capstone separately for CLI use).
+            Includes a binary-file hex/ASCII viewer in Dump Explorer plus PE/ELF/Mach-O identification, printable strings, wildcard AOB scanning, PE/ELF address mapping, and optional Capstone linear-sweep disassembly (install Capstone separately for CLI use).
 
             Mount the DMG and drag Flak1.app into Applications. If signing/notarization credentials are unavailable, this build is ad-hoc signed and not notarized; macOS may require an override in System Settings → Privacy & Security.
           files: |
