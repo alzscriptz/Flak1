@@ -71,6 +71,71 @@ def identify(data: bytes) -> dict[str, Any]:
     return result
 
 
+
+def parse_sections(data: bytes, binary: dict[str, Any]) -> dict[str, Any]:
+    """Parse PE sections and ELF load segments with file-to-virtual address mapping."""
+    fmt = binary.get("format")
+    sections: list[dict[str, Any]] = []
+    try:
+        if fmt == "PE":
+            pe = struct.unpack_from("<I", data, 0x3c)[0]
+            _, count, _, _, _, opt_size, _ = struct.unpack_from("<HHIIIHH", data, pe + 4)
+            opt = pe + 24
+            magic = struct.unpack_from("<H", data, opt)[0]
+            image_base = struct.unpack_from("<I" if magic == 0x10b else "<Q", data, opt + (28 if magic == 0x10b else 24))[0]
+            table = opt + opt_size
+            if count > 4096 or table + count * 40 > len(data):
+                raise ValueError("section table truncated or implausibly large")
+            for i in range(count):
+                off = table + i * 40
+                name = data[off:off + 8].split(bytes([0]), 1)[0].decode("ascii", "replace")
+                vsize, rva, raw_size, raw_off = struct.unpack_from("<IIII", data, off + 8)
+                chars = struct.unpack_from("<I", data, off + 36)[0]
+                if raw_size and raw_off < len(data):
+                    sections.append({"name": name, "file_offset": raw_off, "file_size": min(raw_size, len(data)-raw_off),
+                                     "virtual_address": image_base + rva, "rva": rva, "virtual_size": vsize,
+                                     "characteristics": chars, "address_kind": "preferred image VA"})
+            return {"sections": sections, "warnings": [], "address_mapping": "PE preferred image VA; ASLR runtime base may differ"}
+        if fmt == "ELF":
+            is64 = binary.get("bits") == 64
+            order = "<" if binary.get("endianness") == "little" else ">"
+            if is64:
+                phoff = struct.unpack_from(order + "Q", data, 32)[0]
+                entsize, count = struct.unpack_from(order + "HH", data, 54)
+                phfmt = order + "IIQQQQQQ"
+            else:
+                phoff = struct.unpack_from(order + "I", data, 28)[0]
+                entsize, count = struct.unpack_from(order + "HH", data, 42)
+                phfmt = order + "IIIIIIII"
+            expected = struct.calcsize(phfmt)
+            if count > 4096 or entsize < expected or phoff + entsize * count > len(data):
+                raise ValueError("program-header table truncated or implausibly large")
+            for i in range(count):
+                vals = struct.unpack_from(phfmt, data, phoff + i * entsize)
+                if is64:
+                    ptype, flags, poff, vaddr, _, fsize, msize, _ = vals
+                else:
+                    ptype, poff, vaddr, _, fsize, msize, flags, _ = vals
+                if ptype == 1 and fsize and poff < len(data):
+                    sections.append({"name": f"LOAD_{i}", "file_offset": poff, "file_size": min(fsize, len(data)-poff),
+                                     "virtual_address": vaddr, "virtual_size": msize, "flags": flags,
+                                     "address_kind": "ELF virtual address"})
+            return {"sections": sections, "warnings": [], "address_mapping": "ELF PT_LOAD virtual address; PIE/shared-object runtime base may differ"}
+        if fmt and fmt.startswith("Mach-O"):
+            return {"sections": [], "warnings": ["Mach-O section mapping is not implemented yet"], "address_mapping": None}
+        return {"sections": [], "warnings": ["Unrecognized format"], "address_mapping": None}
+    except (struct.error, ValueError, IndexError) as exc:
+        return {"sections": [], "warnings": [f"Layout parsing failed: {exc}"], "address_mapping": None}
+
+
+def file_offset_to_address(offset: int, layout: dict[str, Any]) -> dict[str, Any] | None:
+    for section in layout.get("sections", []):
+        start, size = section["file_offset"], section["file_size"]
+        if start <= offset < start + size:
+            return {"section": section["name"], "address": section["virtual_address"] + offset - start,
+                    "address_kind": section["address_kind"]}
+    return None
+
 def parse_pattern(pattern: str) -> list[int | None]:
     tokens = pattern.strip().split()
     if not tokens:
@@ -117,10 +182,13 @@ def analyze(path: Path, patterns: list[str], string_limit: int) -> dict[str, Any
     data = path.read_bytes()
     if not data:
         raise ValueError("Input file is empty")
+    binary = identify(data)
+    layout = parse_sections(data, binary)
     info = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "input": {"name": path.name, "size_bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()},
-        "binary": identify(data),
+        "binary": binary,
+        "layout": layout,
         "strings": [],
         "signatures": [],
         "scope": {
@@ -133,11 +201,22 @@ def analyze(path: Path, patterns: list[str], string_limit: int) -> dict[str, Any
     for match in STRING_RE.finditer(data):
         if len(info["strings"]) >= string_limit:
             break
-        info["strings"].append({"file_offset": match.start(), "text": match.group().decode("ascii", "replace")})
+        entry = {"file_offset": match.start(), "text": match.group().decode("ascii", "replace")}
+        mapped = file_offset_to_address(match.start(), layout)
+        if mapped:
+            entry.update(mapped)
+        info["strings"].append(entry)
     for raw in patterns:
         pat = parse_pattern(raw)
         hits = scan(data, pat)
-        info["signatures"].append({"pattern": raw, "match_count": len(hits), "file_offsets_hex": [f"0x{x:X}" for x in hits]})
+        matches = []
+        for hit in hits:
+            entry = {"file_offset": hit, "file_offset_hex": f"0x{hit:X}"}
+            mapped = file_offset_to_address(hit, layout)
+            if mapped:
+                entry.update(mapped)
+            matches.append(entry)
+        info["signatures"].append({"pattern": raw, "match_count": len(hits), "matches": matches})
     return info
 
 
